@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration monitorinterval="30" status="info" strict="true">
+    <Properties>
+        <Property name="filename">target/log/filelog.log</Property>
+        <Property name="PATTERN">%-5level %d [%t] %c:%M(%L): %m%n</Property>
+    </Properties>
+    <Appenders>
+        <Appender type="Console" name="Console">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </Appender>
+
+        <Appender type="File" name="File" fileName="${filename}">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </Appender>
+
+        <Console name="STDOUT" target="SYSTEM_OUT">
+             <PatternLayout pattern="${PATTERN}"/>
+         </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="all">
+            <AppenderRef ref="File"/>
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="STDOUT"/>
+        </Root>
+
+        <!-- Эти два я не пробовал -->
+        <!--<Logger level="INFO">
+        Почему-то выкидывает ошибку.
+            <AppenderRef ref="Console"/>
+        </Logger>-->
+
+        <!-- <Logger name="ru.andreyksu.annikonenkov.utils.CommonOperationWorker" level="ERROR" additivity="true"/> -->
+         <Logger name="ru.andreyksu.annikonenkov.utils.CommonOperationWorker" level="TRACE" additivity="false">
+             <AppenderRef ref="STDOUT"/>
+         </Logger>
+    </Loggers>
+</Configuration>
