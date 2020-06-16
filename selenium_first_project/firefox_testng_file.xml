@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+<suite name="Suite_Firefox_WebDriver">
+	<parameter name="instanceOfWebDriver" value="firefox" />
+	<parameter name="locationOfWebDriver" value="/opt/webDrivers/geckodriver" />
+	<parameter name="startPath" value="/tmp" />
+	<test name="Test_Firefox_WebDriver" verbose="2" annotations="JDK">
+		<classes>
+			<class name="ru.annikonenkov.base.VerifyMainPageOfCitilink">
+				<methods>
+					<include name="goThrowLinks" />
+				</methods>
+			</class>
+		</classes>
+	</test>
+</suite>

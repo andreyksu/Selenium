@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+<suite name="Suite_Chrome_WebDriver">
+	<parameter name="instanceOfWebDriver" value="chrome" />
+	<parameter name="locationOfWebDriver" value="/opt/webDrivers/chromedriver" />
+	<parameter name="startPath" value="/tmp" />
+	<test name="Test_Chrome_WebDriver" verbose="2" annotations="JDK">
+		<classes>
+			<class name="ru.annikonenkov.base.UseCaseForCreateOrder">
+			</class>
+		</classes>
+	</test>
+</suite>

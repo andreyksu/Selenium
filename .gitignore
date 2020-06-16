@@ -6,6 +6,7 @@
 **/.idea/
 **/out
 **/.idea_modules
+**/.allure
 
 
 # Mobile Tools for Java (J2ME)
