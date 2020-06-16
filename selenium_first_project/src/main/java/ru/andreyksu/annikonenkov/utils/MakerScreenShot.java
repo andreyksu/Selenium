@@ -49,10 +49,8 @@ public class MakerScreenShot {
             Robot robot = new Robot();
             BufferedImage screenShot = robot.createScreenCapture(new Rectangle(Toolkit.getDefaultToolkit().getScreenSize()));
             ImageIO.write(screenShot, "JPG", new File(ConfigProperties.getProperties("path.to.ArtifactFolder") + nameScreenShot + ".jpg"));
-            logger.info("Пробуем сделать через средства Java");
         } catch (Exception e) {
             logger.error("Не удалось снять скриншот средствами Java" ,e);
-
         }
     }
 }

@@ -13,7 +13,8 @@ import org.apache.logging.log4j.Logger;
 /**
  * Created by andrey on 17.05.17.
  */
-@Test(testName = "MainMenuTest", suiteName = "...")
+@Test
+//(testName = "MainMenuTest", suiteName = "Selenium")
 public class MainMenuTest extends MainClassForTests {
     private MainMenuWorker mainPage;
     private static Logger logger = MainClassForTests.getLogger();
@@ -30,7 +31,7 @@ public class MainMenuTest extends MainClassForTests {
 
     }
 
-    @Test(description = "testPresentAllReferences", dependsOnMethods = "step01_openMedicalHistory", priority = 2, timeOut = 60000)
+    //@Test(description = "testPresentAllReferences", dependsOnMethods = "step01_openMedicalHistory", priority = 2, timeOut = 60000)
     public void testPresentAllReferences() {
         Exception ex = new Exception();
 
@@ -45,7 +46,7 @@ public class MainMenuTest extends MainClassForTests {
         logger.info("Все ссылки найдены");
     }
 
-    @Test(description = "testLinkToOfficalPortal", priority = 1, timeOut = 60000)
+    //@Test(description = "testLinkToOfficalPortal", priority = 1, timeOut = 60000)
     public void testLinkToOfficalPortal() {
         Exception ex = new Exception();
         String nameTest = ex.getStackTrace()[0].getMethodName();

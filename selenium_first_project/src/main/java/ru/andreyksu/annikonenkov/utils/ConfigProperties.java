@@ -14,8 +14,6 @@ import org.apache.logging.log4j.LogManager;
 public class ConfigProperties {
     private static Properties PROPERTIES;
     private final static Logger logger = LogManager.getLogger(ConfigProperties.class);
-    ;
-
 
     //TODO: нкжно продумать в части статик инициализации. Вероятно не очено хорошая реализация
     static {
