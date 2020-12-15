@@ -6,7 +6,7 @@
 	<parameter name="startPath" value="/tmp" />
 	<test name="Test_Firefox_WebDriver" verbose="2" annotations="JDK">
 		<classes>
-			<class name="ru.annikonenkov.base.VerifyMainPageOfCitilink">
+			<class name="ru.annikonenkov.tests.VerifyMainPageOfCitilink">
 				<methods>
 					<include name="goThrowLinks" />
 				</methods>

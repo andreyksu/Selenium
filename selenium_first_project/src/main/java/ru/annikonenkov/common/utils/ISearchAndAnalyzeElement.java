@@ -2,21 +2,23 @@ package ru.annikonenkov.common.utils;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.function.Function;
 
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 
 import ru.annikonenkov.common.descriptions.Element;
-import ru.annikonenkov.common.exceptions.UnavailableParentWebElement;
+import ru.annikonenkov.common.exceptions.UnavailableParentElement;
 import ru.annikonenkov.common.worker.IContainerWorker;
 
 public interface ISearchAndAnalyzeElement {
 
-    public final int maxTimeWait = 60;
+    public final int MAX_WAIT_TIME = 60;
 
-    public final int maxMultipier = 5;
+    public final int MAX_MULTIPLIER = 5;
 
     /**
+     * Используется - ImpicitWait<br>
      * Проверяет наличие элемента на странице. Проверка ведется без учета родителя.
      * 
      * @param targetElement - целевой элемент, что планируется искать.
@@ -26,6 +28,7 @@ public interface ISearchAndAnalyzeElement {
     public boolean checkIsPresentWebElement(Element<? extends IContainerWorker> targetElement, int timeMultiplier);
 
     /**
+     * Используется - ImpicitWait<br>
      * Проверяет наличие элемента на странице. Проверка ведется с учетом родителя.
      * 
      * @param targetElement - целевой элмент, что планируется к поиску.
@@ -34,9 +37,10 @@ public interface ISearchAndAnalyzeElement {
      * @return
      */
     public boolean checkIsPresentWebElementWithInParent(Element<? extends IContainerWorker> targetElement,
-            Element<? extends IContainerWorker> parentElement, int timeMultiplier) throws UnavailableParentWebElement;
+            Element<? extends IContainerWorker> parentElement, int timeMultiplier) throws UnavailableParentElement;
 
     /**
+     * Используется - ImpicitWait<br>
      * Возвращает WebElement - представляющий из себя элемент веб страницы.<br>
      * Не использовать метод для проерки отсутствия элемента (т.е. когда не должно быть элемента на странице). Для этих
      * целей использовать метод {@link getWebElements(...)}
@@ -49,6 +53,7 @@ public interface ISearchAndAnalyzeElement {
     public WebElement getWebElement(Element<? extends IContainerWorker> targetElement, int timeMultiplier);
 
     /**
+     * Используется - ImpicitWait<br>
      * Возвращает WebElement - представляющий собой элемент веб страницы. Ищет с учетом родительского элемента.<br>
      * Не использовать метод для проверки отсутствия элемента. Для этих целей использовать метод
      * {@link getWebElementsWithinParent(...)}
@@ -60,14 +65,37 @@ public interface ISearchAndAnalyzeElement {
      * @return - возвращает найденный элемент. Может вернуть Null - если элемент не найден.
      */
     public WebElement getWebElementWithinParent(Element<? extends IContainerWorker> targetElement,
-            Element<? extends IContainerWorker> parentElement, int timeMultiplier) throws UnavailableParentWebElement;
+            Element<? extends IContainerWorker> parentElement, int timeMultiplier) throws UnavailableParentElement;
 
-    /** */
+    /**
+     * Используется - ImpicitWait<br>
+     */
     public List<WebElement> getListOfWebElements(Element<? extends IContainerWorker> targetElement, int timeMultiplier);
 
+    /**
+     * Используется - ImpicitWait<br>
+     */
     public List<WebElement> getListOfWebElementsWithinParent(Element<? extends IContainerWorker> targetElement,
-            Element<? extends IContainerWorker> parentElement, int timeMultiplier) throws UnavailableParentWebElement;
+            Element<? extends IContainerWorker> parentElement, int timeMultiplier) throws UnavailableParentElement;
 
+    /*--------------*/
+
+    public List<WebElement> getWebElementByFunctionInnerImpl(int timeMultiplier,
+            Function<WebDriver, List<WebElement>> functional);
+
+    /**
+     * Используется - ExplicitWait<br>
+     */
+    public List<WebElement> getWebElementByFunction(Element<? extends IContainerWorker> targetElement,
+            Element<? extends IContainerWorker> parentElement, int timeMultiplier) throws UnavailableParentElement;
+
+    /**
+     * Используется - ExplicitWait<br>
+     */
+    public boolean verifyThatTargetElementDoesntPresent(Element<? extends IContainerWorker> targetElement,
+            Element<? extends IContainerWorker> parentElement, int timeMultiplier) throws UnavailableParentElement;
+
+    /*--------------*/
     /**
      * Устанавливает пусть до каталога в котором будут сохранться артефакты теста(скриншоты, логи).
      * 

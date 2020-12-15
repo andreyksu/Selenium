@@ -7,8 +7,8 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
 
 import ru.annikonenkov.common.exceptions.UnavailableReturndeContainer;
-import ru.annikonenkov.common.exceptions.UnavailableTargetWebElement;
-import ru.annikonenkov.common.utils.ISearchAndAnalyzeElement;
+import ru.annikonenkov.common.exceptions.UnavailableTargetElement;
+import ru.annikonenkov.common.fabric.IContainerFabric;
 import ru.annikonenkov.common.worker.IContainerWorker;
 
 /**
@@ -19,13 +19,12 @@ import ru.annikonenkov.common.worker.IContainerWorker;
  * <li>By - селектор, что описывает данный элемент поиске на странице.</li>
  * <li>WebElement - найденный элемента на странице.</li>
  * <li>Тип элемента - описывает к какому типу отнести данный элемент Ссылка, Кнопка итд</li>
- * <li>Возвращает объект что генерируется при клике на данный элемент - для Link - это Page. Для кнопки это может быть
- * ЛМД(формы заполнения).</li>
+ * <li>Возвращает объект что генерируется при клике на данный элемент - для Link - это Page. Для кнопки это может быть ЛМД(формы заполнения).</li>
  * </ul>
  * 
  * @param <R>
  */
-public class Element<T extends IContainerWorker> {
+public class Element<T extends IContainerWorker> implements IElement<T> {
 
     private String _nameOfElement;
 
@@ -42,41 +41,38 @@ public class Element<T extends IContainerWorker> {
      * Для Button - это может быть ЛМД (локально-модельное окно) - форма заполнения.
      */
     /*
-     * TODO: Вот для кнопки не понятно, когда мы кликнули на кнопку в ЛМД(кнопку подтверждения, которая закрывает ЛМД) -
-     * что должно быть возвращено, Снова вызвавшая страничка? Так же вопрос про поиск, вот результат поиска дал, что
-     * содержимое контента изменилось до неузнаваемости, что в этом случае?
+     * TODO: Вот для кнопки не понятно, когда мы кликнули на кнопку в ЛМД(кнопку подтверждения, которая закрывает ЛМД) - что должно быть возвращено, Снова
+     * вызвавшая страничка? Так же вопрос про поиск, вот результат поиска дал, что содержимое контента изменилось до неузнаваемости, что в этом случае?
      */
     /*
-     * TODO: А еще может быть так, что Element может породить Part - т.е. всплывающая область при наведении на элемент.
-     * Или в случае поиска - Part что писывает контент меняется. И вот здесь видимо стоит это учесть.
+     * TODO: А еще может быть так, что Element может породить Part - т.е. всплывающая область/меню при наведении на элемент. Или в случае поиска - Part что
+     * писывает контент меняется. И вот здесь видимо стоит это учесть.
      */
 
-    private Function<ISearchAndAnalyzeElement, T> _fProducedContainer;
+    private IContainerFabric<T> _containerFabric;
 
     private WebElement _webElement = null;
 
     /**
      * Конструктор элемента.
      * 
-     * @param nameOfElement - Текствое наименование/описание текущего элмента.
+     * @param nameOfElement - Текствое наименование/описание текущего элемента.
      * @param selectorOfElement - CSS или XPath cелектор. Должен быть соотнесен с полем function.
      * @param function - Ссылка на на метод вида By::cssSelector/By::xpath - т.е. описывает тип селектора.
-     * @param typeOfElement - Тип элемента. Ссылка, Кнопка - описывается на базе действия, что выполняется при клике на
-     *            данный элемент. Т.е. если внешне-отображаемая кнопка открывает новую страницу - то это линка.
-     * @param producedContainer - Это Page, Part или ModalWindow - т.е. то что пораждает данный элемент в результате
-     *            клика по нему.
+     * @param typeOfElement - Тип элемента. Ссылка, Кнопка - описывается на базе действия, что выполняется при клике на данный элемент. Т.е. если
+     *            внешне-отображаемая кнопка открывает новую страницу - то это линка.
+     * @param containerFabric - Это Page, Part или ModalWindow - т.е. то что пораждает данный элемент в результате клика по нему.
      */
-    public Element(String nameOfElement, String selectorOfElement, Function<String, By> function,
-            ETypeOfElement typeOfElement, Function<ISearchAndAnalyzeElement, T> producedContainer) {
+    public Element(String nameOfElement, String selectorOfElement, Function<String, By> function, ETypeOfElement typeOfElement,
+            IContainerFabric<T> containerFabric) {
         _nameOfElement = nameOfElement;
         _selectorOfElement = selectorOfElement;
         _fSelectorToBy = function;
         _typeOfElement = typeOfElement;
-        _fProducedContainer = producedContainer;
+        _containerFabric = containerFabric;
     }
 
-    public Element(String nameOfElement, String selectorOfElement, Function<String, By> function,
-            ETypeOfElement typeOfElement) {
+    public Element(String nameOfElement, String selectorOfElement, Function<String, By> function, ETypeOfElement typeOfElement) {
         _nameOfElement = nameOfElement;
         _selectorOfElement = selectorOfElement;
         _fSelectorToBy = function;
@@ -85,12 +81,18 @@ public class Element<T extends IContainerWorker> {
 
     @Override
     public String toString() {
+        return getName();
+    }
+
+    @Override
+    public String getName() {
         return _nameOfElement;
     }
 
     /**
      * @return Возвращает By для элемента - по сути и есть описание элемента в контексте WebDriver
      */
+    @Override
     public By getBy() {
         return _fSelectorToBy.apply(_selectorOfElement);
     }
@@ -98,6 +100,7 @@ public class Element<T extends IContainerWorker> {
     /**
      * @return Возвращает тип элемента. Для примера Link, Button или еще что-то.
      */
+    @Override
     public ETypeOfElement getTypeOfElement() {
         return _typeOfElement;
     }
@@ -105,29 +108,20 @@ public class Element<T extends IContainerWorker> {
     /**
      * @return - boolean содержит ли генерируемый контейнер.
      */
+    @Override
     public boolean hasProducedContainer() {
-        return _fProducedContainer == null ? false : true;
+        return _containerFabric == null ? false : true;
     }
 
     /**
      * @return Возвращает контейнер, что пораждает данный элемент. Может быть null.<br>
-     *         Допустим Link пораждает новую страницу - т.е. будет возвращена страница. Для Button - это может быть
-     *         новое модально окно. Часть кнопок тоже можгут возвращать новую страницу, допустим авторизация. Часть
-     *         кнопок возвращает текущий Part или текущий Page.
+     *         Допустим Link пораждает новую страницу - т.е. будет возвращена страница. Для Button - это может быть новое модально окно. Часть кнопок тоже
+     *         можгут возвращать новую страницу, допустим авторизация. Часть кнопок возвращает текущий Part или текущий Page.
      * @throws UnavailableReturndeContainer
      */
-    public T getProducedContainerOrThrow(ISearchAndAnalyzeElement searcher) throws UnavailableReturndeContainer {
-        if (_fProducedContainer == null) {
-            String infoText = String.format("Element = %s не возвращает никакого контейнера!", _nameOfElement);
-            throw new UnavailableReturndeContainer(infoText);
-        }
-        return _fProducedContainer.apply(searcher);
-    }
-
-    public Optional<T> getProducedContainer(ISearchAndAnalyzeElement searcher) {
-        if (_fProducedContainer == null)
-            return Optional.empty();
-        return Optional.of(_fProducedContainer.apply(searcher));
+    @Override
+    public Optional<IContainerFabric<T>> getProducedContainer() {
+        return Optional.ofNullable(_containerFabric);
     }
 
     /**
@@ -139,12 +133,13 @@ public class Element<T extends IContainerWorker> {
 
     /**
      * @return возвращает webElement, который соответствует найденому элементу.
-     * @throws UnavailableTargetWebElement - генерируется в случае если webElement = null.
+     * @throws UnavailableTargetElement - генерируется в случае если webElement = null.
      */
-    public WebElement getWebElementOrThrow() throws UnavailableTargetWebElement {
+    @Override
+    public WebElement getWebElementOrThrow() throws UnavailableTargetElement {
         if (_webElement == null) {
             String infoText = String.format("У Element = %s отсуствует значение WebElement!", _nameOfElement);
-            throw new UnavailableTargetWebElement(infoText);
+            throw new UnavailableTargetElement(infoText);
         }
         return _webElement;
     }
@@ -152,7 +147,7 @@ public class Element<T extends IContainerWorker> {
     /**
      * @return возвращает webElement, в виде Optional.
      */
-
+    @Override
     public Optional<WebElement> getWebElement() {
         return Optional.ofNullable(_webElement);
     }
@@ -160,6 +155,7 @@ public class Element<T extends IContainerWorker> {
     /**
      * @return возвращает Selector в виде строки.
      */
+    @Override
     public String getSelectorOfElementAsString() {
         return _selectorOfElement;
     }

@@ -6,7 +6,7 @@
 	<parameter name="startPath" value="/tmp" />
 	<test name="Test_Chrome_WebDriver" verbose="2" annotations="JDK">
 		<classes>
-			<class name="ru.annikonenkov.base.UseCaseForCreateOrder">
+			<class name="ru.annikonenkov.tests.UseCaseForCreateOrder">
 			</class>
 		</classes>
 	</test>

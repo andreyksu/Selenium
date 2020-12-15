@@ -2,68 +2,77 @@ package ru.annikonenkov.common.worker;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
 
 import ru.annikonenkov.common.descriptions.APartDescriptor;
-import ru.annikonenkov.common.descriptions.ETypeOfElement;
 import ru.annikonenkov.common.descriptions.Element;
-import ru.annikonenkov.common.exceptions.UnavailableParentWebElement;
-import ru.annikonenkov.common.registry.PartRegistry;
+import ru.annikonenkov.common.exceptions.UnavailableParentElement;
+import ru.annikonenkov.common.registry.IPartRegistry;
 import ru.annikonenkov.common.utils.ISearchAndAnalyzeElement;
+import ru.annikonenkov.common.utils.visitor.IVerifyVisitor;
 
 /**
  * Описывает часть страницы. Т.е. можно провести аналогию с div, когда он используется для логической группировки страницы.<br>
  * По сути является центральным звеном - вся работа ведется здесь.
  * 
- * @param <T> - <b><i>родитель</i></b> для данного Part. Это может быть Page, LMD, или другой Part.
+ * @param <PartDescriptorType> - <b><i>родитель</i></b> для данного Part. Это может быть Page, LMD, или другой Part.
  * @param <P> - <b><i>класс-описание</i></b> для данного Part. Т.е. PartDescriptor - т.е. содержит {@link Element}.
  */
 
-public abstract class APartWorker<T extends IContainerWorker, P extends APartDescriptor> implements IPartWorker<T> {
+public abstract class APartWorker implements IPartWorker {
 
-    private final static Logger _logger = LogManager.getLogger(APartWorker.class);
+    private final static Logger _LOGGER = LogManager.getLogger(APartWorker.class);
 
-    private final String _descriptionOfPart;
+    private final String _description;
 
     private final String _nameForMap;
 
-    private final T _owner;
+    private final IContainerWorker _owner;
 
     /**
      * Коллекция дочерних Part.<br>
      * Сюда помещаются дочерние Part.
      */
-    private final Map<String, IPartWorker<? extends IPartWorker<?>>> _subPartsAsMap = new HashMap<>();
+    private final Map<IPartRegistry, IPartWorker> _subPartsAsMap = new HashMap<>();
 
     /**
      * Поле содержит класс-описание (PartDescriptor) для данного Part.
      */
-    protected final P partDescriptor;
+    private final APartDescriptor _partDescriptor;
 
-    private PartRegistry _partRegistry;
+    private IPartRegistry _partRegistry;
 
     /**
-     * Переменная описывает - множитель времени ожидания.<br>
-     * Т.е. берется стандартное время, которое должно быть задано в тесте - и умножается на этот коэффициент.<br>
-     * Т.е. первая переменная являетя общая для теста - когда мы говорим о медленных машинах - мы увеличиваем время ожидания.<br>
-     * Но при этом еще каждый метод в Part должен знать если ему требуется больше заданного времени (он может воспользоваться множителем.<br>
-     * Для методов из абстрактного класса - это поле яляется единицей - так как в стандартных действиях увеличение времени по отношению к заданному, не
-     * требуется.
+     * Переменная описывает - множитель для времени ожидания.<br>
+     * Т.е. берется время, которое было задано в тесте при создании SearchAndAnalyzeElements - и умножается на этот коэффициент.<br>
+     * Т.е. первая переменная являетя общая для теста, а вторая переменная позволяет настраивать время ожидания для конкретного теста.<br>
+     * Для методов из абстрактного класса - это поле имеет значение равное 1. Так как в стандартных действиях увеличение времени через множетель, не требуется.
+     * Если же для действий тек. класса время заданного в классе SearchAndAnalyzeElements не достаточно, то необходимо увеличить его в SearchAndAnalyzeElements.
      */
     protected final byte timeMultiplier = 1;
 
-    public APartWorker(T owner, PartRegistry partRegistry, P relatedPartDescriptor) {
+    protected APartWorker(IContainerWorker owner, IPartRegistry partRegistry, APartDescriptor relatedPartDescriptor) {
         _owner = owner;
         _partRegistry = partRegistry;
-        _descriptionOfPart = _partRegistry.getDescription();
+        _description = _partRegistry.getDescription();
         _nameForMap = _partRegistry.getName();
-        partDescriptor = relatedPartDescriptor;
+        _partDescriptor = relatedPartDescriptor;
+    }
+
+    @Override
+    public IPartRegistry getRegistry() {
+        return _partRegistry;
+    }
+
+    @Override
+    public IContainerWorker getOwner() {
+        return _owner;
     }
 
     @Override
@@ -78,13 +87,65 @@ public abstract class APartWorker<T extends IContainerWorker, P extends APartDes
 
     @Override
     public String getFullDescription() {
-        StringBuilder sb = new StringBuilder().append(_owner.getFullDescription()).append("----->").append(_descriptionOfPart);
+        StringBuilder sb = new StringBuilder().append(_owner.getFullDescription()).append("----->").append(_description);
         return sb.toString();
     }
 
     @Override
-    public T getOwner() {
-        return _owner;
+    public void addPart(IPartWorker partWorker) {
+        if (partWorker == null) {
+            _LOGGER.error("В качестве Part передан null. Part добавлен не будет!");
+            return;
+        }
+        IPartRegistry partRegistry = partWorker.getRegistry();
+        if (partRegistry.hasParentPart() && (partRegistry.getParentPartRegistry().get() == _partRegistry)) {
+            _subPartsAsMap.put(partWorker.getRegistry(), partWorker);
+        } else {
+            if (partRegistry.hasParentPart()) {
+                _LOGGER.error("Переданный Part = '{}' имеет родителя = '{}', что не совпадает с текущим Part. Part не будет добавлен.", partWorker.getName(),
+                        partRegistry.getName());
+            } else {
+                _LOGGER.error("Переданный Part = '{}' не имеет родителя. Part не будет добавлен.", partWorker.getName());
+            }
+
+        }
+    }
+
+    // TODO: Метод полностью совпадает с аналогичным методом в AHightLevelContainer. Нужно вынести в общую часть.
+    // TODO: Переделать под Optional.
+    @Override
+    public IPartWorker getPart(IPartRegistry partRegistry) {
+        if (partRegistry == null) {
+            _LOGGER.error("В качестве IPartRegistry был передан null, поиск не будет выполнен.");
+            return null;
+        }
+        IPartWorker targetPart = _subPartsAsMap.get(partRegistry);
+        if (targetPart == null) {
+            Collection<IPartWorker> childParts = _subPartsAsMap.values();
+            _LOGGER.debug("В Part = '{}' не смогли найти целевой Part = {}", _nameForMap, partRegistry.getName());
+            _LOGGER.debug("В Part = '{}' находится childParts = '{}'", _nameForMap, childParts);
+            for (IPartWorker part : childParts) {
+                targetPart = part.getPart(partRegistry);
+                if (targetPart != null)
+                    break;
+            }
+        }
+        return targetPart;
+    }
+
+    public <T> List<T> getPartByClass(Class<T> clazz) {
+        Collection<IPartWorker> childParts = _subPartsAsMap.values();
+        List<T> list = childParts.stream().filter(clazz::isInstance).map(clazz::cast).collect(Collectors.toList());
+        if (list.size() == 0) {
+            _LOGGER.debug("В Part = '{}' не смогли найти Part = '{}'", _nameForMap, clazz);
+            _LOGGER.debug("В Part = '{}' находится childParts = '{}'", _nameForMap, childParts);
+            for (IPartWorker childrenPart : childParts) {
+                list = childrenPart.getPartByClass(clazz);
+                if (list.size() != 0)
+                    break;
+            }
+        }
+        return list;
     }
 
     @Override
@@ -98,13 +159,8 @@ public abstract class APartWorker<T extends IContainerWorker, P extends APartDes
     }
 
     @Override
-    public IPartWorker<? extends IContainerWorker> getPartByName(String nameOfPart) {
-        return _subPartsAsMap.get(nameOfPart);
-    }
-
-    @Override
-    public <K extends IPartWorker<?>> void addSubPart(IPartWorker<K> part) {
-        _subPartsAsMap.put(part.toString(), part);
+    public IContainerWorker getRootContainer() {
+        return _owner.getRootContainer();
     }
 
     /**
@@ -119,8 +175,10 @@ public abstract class APartWorker<T extends IContainerWorker, P extends APartDes
      * }
      * </pre>
      * 
-     * Убрал! Не подошла, так как после навигации при возврате на эту же страницу - элемент этот уже не годится для работы (падает с ошибкой Stale Element
-     * Reference Exception).<br>
+     * Убрал данный код! Он позволял повторно не искать элемент, что ранее был найден.<br>
+     * Не подошел, так как после навигации при возврате на эту же страницу - найденный WebElement уже не годится для работы (падает с ошибкой Stale Element
+     * Reference Exception). Да и вообще - парни советуют каждый раз искать жлемент, дабы не падать по ошибке StaleElementReferenceException - а эта ошибка
+     * возникает довольно часто даже при простой загрузке страницы - к примеру часто бывает как бы двойная загрузка страницы<br>
      * - При каждом вызове этого метода, происходит поиск элемента текущего Part - все по той же причине, что и выше.<br>
      * - Необходимо для случая, когда возвращаемся на эту же страницу через функцию - "Вернуться обратно".
      * <p>
@@ -134,8 +192,9 @@ public abstract class APartWorker<T extends IContainerWorker, P extends APartDes
         boolean resultOfCheck = false;
         try {
             resultOfCheck = getElementForPart().getWebElement().isPresent();
-        } catch (UnavailableParentWebElement e) {
-            _logger.error("Ошибка при поиске текущего Part. У родительского Part = '{}': webElement = null", getFullDescription());
+        } catch (UnavailableParentElement e) {
+            _LOGGER.error("Ошибка при поиске текущего Part = '{}'. У родительского Part : webElement = null! FullDescription = '{}'", getName(),
+                    getFullDescription());
         }
         return resultOfCheck;
     }
@@ -143,12 +202,13 @@ public abstract class APartWorker<T extends IContainerWorker, P extends APartDes
     @Override
     public boolean isPresentChildParts() {
         if (isPresentCurrentPart() == false) {
-            _logger.error("Проверка дочерхних элементов не будет выполнена, так как для тек. Part = '{}' не был найден его webElement!", getFullDescription());
+            _LOGGER.error("Проверка дочерних элементов не будет выполнена, так как для тек. Part = '{}' не был найден его webElement! FullDescription = '{}'",
+                    getName(), getFullDescription());
             return false;
         }
-        Collection<IPartWorker<? extends IPartWorker<?>>> subParts = _subPartsAsMap.values();
+        Collection<IPartWorker> subParts = _subPartsAsMap.values();
         boolean isPresent = true;
-        for (IPartWorker<? extends IPartWorker<?>> subPart : subParts) {
+        for (IPartWorker subPart : subParts) {
             isPresent &= subPart.isPresentCurrentPart();
         }
         return isPresent;
@@ -172,12 +232,13 @@ public abstract class APartWorker<T extends IContainerWorker, P extends APartDes
     @Override
     public boolean isPresentAllSubPartsInFullDepth() {
         if (isPresentCurrentPart() == false) {
-            _logger.error("Проверка всей иерархии Part не будет выполнена, так как для тек. Part = '{}' не был найден его webElement!", getFullDescription());
+            _LOGGER.error("Проверка всей иерархии Part не будет выполнена, так как для тек. Part = '{}' не был найден его webElement! FullDescription = '{}'",
+                    getName(), getFullDescription());
             return false;
         }
         boolean isPresent = isPresentChildParts();
-        Collection<IPartWorker<? extends IPartWorker<?>>> subParts = _subPartsAsMap.values();
-        for (IPartWorker<? extends IPartWorker<?>> subPart : subParts) {
+        Collection<IPartWorker> subParts = _subPartsAsMap.values();
+        for (IPartWorker subPart : subParts) {
             isPresent &= subPart.isPresentAllSubPartsInFullDepth();
         }
         return isPresent;
@@ -192,15 +253,17 @@ public abstract class APartWorker<T extends IContainerWorker, P extends APartDes
     @Override
     public boolean isPresentItsOwnElements() {
         if (isPresentCurrentPart() == false) {
-            _logger.error("Проверка наличия Element не будет выполнена, так как для тек. Part = '{}' не был найден его webElement!", getFullDescription());
+            _LOGGER.error("Проверка наличия Element не будет выполнена, так как для тек. Part = '{}' не был найден его webElement! FullDescription = '{}'",
+                    getName(), getFullDescription());
             return false;
         }
         boolean resultOfcheck = false;
-        Collection<Element<? extends IContainerWorker>> elements = partDescriptor.getCollectionOfElements();
+        Collection<Element<? extends IContainerWorker>> elements = _partDescriptor.getCollectionOfElements();
         try {
             resultOfcheck = checkIsPresentAllElementsInPart(elements);
-        } catch (UnavailableParentWebElement e) {
-            _logger.error("Ошибка при поиске элемента. У тек. Part = {} не был проинициализиров его WebElement", getFullDescription());
+        } catch (UnavailableParentElement e) {
+            _LOGGER.error("Ошибка при поиске элемента. У тек. Part = {} не был проинициализиров его WebElement! FullDescription = '{}'", getName(),
+                    getFullDescription());
         }
         return resultOfcheck;
     }
@@ -214,135 +277,73 @@ public abstract class APartWorker<T extends IContainerWorker, P extends APartDes
     @Override
     public boolean isPresentAllElementsInFullDepth() {
         if (isPresentCurrentPart() == false) {
-            _logger.error("Проверка наличия Element по всей иерархии не будет выполнена, так как для тек. Part = '{}' не был найден webElement!",
-                    getFullDescription());
+            _LOGGER.error(
+                    "Проверка наличия Element по всей иерархии не будет выполнена, так как для тек. Part = '{}' не был найден webElement! FullDescription = '{}'",
+                    getName(), getFullDescription());
             return false;
         }
         boolean isPresent = isPresentItsOwnElements();
-        Collection<IPartWorker<? extends IPartWorker<?>>> parts = _subPartsAsMap.values();
-        for (IPartWorker<? extends IPartWorker<?>> iPart : parts) {
+        Collection<IPartWorker> parts = _subPartsAsMap.values();
+        for (IPartWorker iPart : parts) {
             isPresent &= iPart.isPresentAllElementsInFullDepth();
         }
         return isPresent;
     }
 
-    @Override
-    public IContainerWorker getRootContainer() {
-        return _owner.getRootContainer();
-    }
-
     /**
-     * Метод, что непосредственно проверят работу ссылки.<br>
-     * <ul>
-     * <li>Предварительно проверят, найден ли WeBElement ссылки и является ли элемент ссылкой.</li>
-     * <li>Кликае по ссылке.</li>
-     * <li>Ждет открытия страницы! Проверят на открывшейся странице все элементы (т.е. параллельно инициализирует все элементы)</li>
-     * <li>Проверяет URL. Туда ли привела Link</li>
-     * <li>После возврата на исходную страницу, снова производим инициализацию элементов исходной страницы. Необходимо из за особоенностой работы WebDriver</li>
-     * </ul>
-     * 
-     * @param elements - коллекция всех элементов, что задекларированы в PartDescriptor текущего Part.
-     * @return - результат проверки всех Link на текущем Part.
+     * Метод, что выполняет проверку по всей иерархии. То что проверяем и как проверяем обеспечивается полученным объектом.
      */
-    private boolean doWorkConcreteLinkOnPart(Collection<Element<? extends IContainerWorker>> elements) {
-        boolean isWorkLinks = true;
-        for (Element<? extends IContainerWorker> elem : elements) {
-            if (elem.getTypeOfElement() == ETypeOfElement.LINK) {
-                Optional<WebElement> webElem = elem.getWebElement();
-                if (webElem.isEmpty()) {
-                    _logger.error("На Part - '{}', элемент-ссылка - '{}' видимо не былa найден, так как её WebElement == null. Пропускаем.",
-                            getFullDescription(), elem);
-                    continue;
-                }
-                if (!elem.hasProducedContainer()) {
-                    _logger.warn(
-                            "На Part - '{}', для элемента-ссылки - '{}' не определен возвращаемый Container, по этой прчине переход по данной ссылке будет пропущен.",
-                            getFullDescription(), elem);
-                    continue;
-                }
-
-                _logger.info("Element для ссылка был найден. Имеет возвращаемый контейнер. Кликаем по ссылке, для перехода на страницу!");
-
-                // TODO: Пока оставил так. Т.к. реализация была до перехода на Optioanl. Позже вернуться и переделать.
-                webElem.get().click();
-                IContainerWorker container = elem.getProducedContainer(getSearcherAndAnalуzerElements()).get();
-
-                _logger.info("Проверяем у все элементы у полученного Container = '{}' в результате перехода по ссылки!", container.getFullDescription());
-                isWorkLinks &= container.isPresentAllElementsInFullDepth();
-
-                if (container instanceof IPageWorker) {
-                    _logger.debug("На Page = '{}', Element - '{}' возвращает страницу. Проверим ее URL", getFullDescription(), elem);
-                    IPageWorker ipage = (IPageWorker) container;
-                    String URLOfPage = ipage.getURLOfPage();
-                    String returnedURL = getSearcherAndAnalуzerElements().getURLOfCurrentPage();
-                    isWorkLinks &= URLOfPage.equals(returnedURL);
-                    if (!URLOfPage.equals(returnedURL)) {
-                        _logger.error("Адреса страниц не совпадают Ожидаем - '{}', Получили - '{}'", URLOfPage, returnedURL);
-                    }
-                } else {
-                    _logger.debug("Возвращенный контейнер не является Page. А является = '{}'. Проверка характерная для Page выполнена не будет",
-                            container.getClass());
-                }
-
-            } else {
-                _logger.debug("Проверяемый элемент = '{}' имеет тип = '{}'. Пропускаем проверку свойственную для Link", elem, elem.getTypeOfElement());
-            }
-            getSearcherAndAnalуzerElements().getWebDriver().navigate().back();
-            IPageWorker page = (IPageWorker) getRootContainer();
-            page.isPresentAllElementsInFullDepth();
-        }
-        return isWorkLinks;
-
-    }
-
+    // TODO: Передалть метод. Должен получать Объект, что будет знать что и как проверить. Будет дергать конкретные методы что дочтупно в IPartWorker.
     @Override
-    public boolean verifyLinks() {
+    public boolean verifyByVisitor(IVerifyVisitor visitor) {
         if (isPresentCurrentPart() == false)
             return false;
-        boolean isWorkLinks = true;
-        Collection<Element<? extends IContainerWorker>> elements = partDescriptor.getCollectionOfElements();
-        isWorkLinks = doWorkConcreteLinkOnPart(elements);
+        boolean isPositive = true;
+        isPositive = visitor.verify(this);
 
-        Collection<IPartWorker<? extends IPartWorker<?>>> colls = _subPartsAsMap.values();
-        for (IPartWorker<? extends IPartWorker<?>> coll : colls) {
-            isWorkLinks &= coll.verifyLinks();
+        Collection<IPartWorker> colls = _subPartsAsMap.values();
+        for (IPartWorker coll : colls) {
+            isPositive &= coll.verifyByVisitor(visitor);
         }
-        return isWorkLinks;
+        return isPositive;
     }
 
     @Override
-    public Element<? extends IContainerWorker> getElementForPart() throws UnavailableParentWebElement {
+    public Element<? extends IContainerWorker> getElementForPart() throws UnavailableParentElement {
         return getElementForPart(true);
     }
 
     /**
      * {@inheritDoc}
      * <p>
-     * Нужно учесть, что с таким подходом (см. первую проверку) при наличии у всех Part - webElement = null - мы доберемся до самого корня. И если где-то
-     * наверху так и не удастся найдит webElelent - мы попадем на UnavailableParentElement
+     * Нужно учесть, что с таким подходом (см. первую проверку) при наличии у всех Part - webElement = null - мы доберемся до самого корня т.е. Page или до Part
+     * у которого есть Element. И после этого пойдем вниз.<br>
+     * И если верхний элемент так и не удастся найдит webElement то будет возбуждено UnavailableParentElement.
      */
     @Override
-    public Element<? extends IContainerWorker> getElementForPart(boolean doNewSearch) throws UnavailableParentWebElement {
-        if (partDescriptor.getElementForCurrentPart().getWebElement().isPresent() && !doNewSearch) {
-            return partDescriptor.getElementForCurrentPart();
+    public Element<? extends IContainerWorker> getElementForPart(boolean doNewSearch) throws UnavailableParentElement {
+        Element<? extends IContainerWorker> elementForCurrentPart = _partDescriptor.getElementForCurrentPart();
+
+        if (elementForCurrentPart.getWebElement().isPresent() && !doNewSearch) {
+            return elementForCurrentPart;
         }
-        T own = getOwner();
+        IContainerWorker own = getOwner();
         Element<? extends IContainerWorker> parentElement = null;
-        if (own instanceof APartWorker) {
-            parentElement = ((APartWorker<?, ?>) own).getElementForPart(false);
-            getSearcherAndAnalуzerElements().getWebElementWithinParent(partDescriptor.getElementForCurrentPart(), parentElement, timeMultiplier);
+        if (own instanceof IPartWorker) {
+            parentElement = ((IPartWorker) own).getElementForPart(false);
+            getSearcherAndAnalуzerElements().getWebElementWithinParent(elementForCurrentPart, parentElement, timeMultiplier);
         } else if ((own instanceof ALMDWorker) && ((ALMDWorker) own).getElementAsStartPointForThisLMD() != null) {
             parentElement = ((ALMDWorker) own).getElementAsStartPointForThisLMD();
-            getSearcherAndAnalуzerElements().getWebElementWithinParent(partDescriptor.getElementForCurrentPart(), parentElement, timeMultiplier);
+            getSearcherAndAnalуzerElements().getWebElementWithinParent(elementForCurrentPart, parentElement, timeMultiplier);
         } else {
-            getSearcherAndAnalуzerElements().getWebElement(partDescriptor.getElementForCurrentPart(), timeMultiplier);
+            getSearcherAndAnalуzerElements().getWebElement(elementForCurrentPart, timeMultiplier);
         }
-        if (partDescriptor.getElementForCurrentPart().getWebElement().isEmpty())
-            _logger.error("Для текущего Part = '{}' НЕ найден описывающей его - webElement", getFullDescription());
+        if (elementForCurrentPart.getWebElement().isEmpty())
+            _LOGGER.error("Для текущего Part = '{}' НЕ найден описывающей его - webElement! FullDescription = '{}'", getName(), getFullDescription());
         else {
-            _logger.info("Для текущего Part = '{}' найден описывающей его webElement", getFullDescription());
+            _LOGGER.debug("Для текущего Part = '{}' найден описывающей его - webElement! FullDescription = '{}'", getName(), getFullDescription());
         }
-        return partDescriptor.getElementForCurrentPart();
+        return elementForCurrentPart;
     }
 
     /**
@@ -351,14 +352,15 @@ public abstract class APartWorker<T extends IContainerWorker, P extends APartDes
      * @param elements - коллекция элементов текущего Part
      * @return - результат проверки наличия элементов в текущем Part.
      */
-    private boolean checkIsPresentAllElementsInPart(Collection<Element<? extends IContainerWorker>> elements) throws UnavailableParentWebElement {
+    private boolean checkIsPresentAllElementsInPart(Collection<Element<? extends IContainerWorker>> elements) throws UnavailableParentElement {
         boolean result = true;
         for (Element<? extends IContainerWorker> element : elements) {
-            result &= getSearcherAndAnalуzerElements().checkIsPresentWebElementWithInParent(element, partDescriptor.getElementForCurrentPart(), timeMultiplier);
+            result &=
+                    getSearcherAndAnalуzerElements().checkIsPresentWebElementWithInParent(element, _partDescriptor.getElementForCurrentPart(), timeMultiplier);
             if (!result) {
-                _logger.error("В Part = '{}' НЕ  найден Element = '{}'", getFullDescription(), element.toString());
+                _LOGGER.error("В Part = '{}' НЕ  найден Element = '{}'", getName(), element.toString());
             } else {
-                _logger.info("В Part = '{}' найден Element = '{}'", getFullDescription(), element.toString());
+                _LOGGER.debug("В Part = '{}' найден Element = '{}'", getName(), element.toString());
             }
         }
         return result;
