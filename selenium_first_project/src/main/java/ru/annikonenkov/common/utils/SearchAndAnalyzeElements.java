@@ -32,7 +32,7 @@ public class SearchAndAnalyzeElements implements ISearchAndAnalyzeElement {
     private final static Logger _logger = LogManager.getLogger(SearchAndAnalyzeElements.class);
 
     private final String messageForIsntWebElement =
-            "Exception: У родителя = '%s' внутри котрого планируется осуществлять поиск webElement = null !";
+            "Exception: У родителя = '%s' его webElement = null !";
 
     private WebDriver _driver;
 
