@@ -32,7 +32,7 @@
 
 		<jetty.maven.plugin.version>9.4.12.RC2</jetty.maven.plugin.version>
 
-		<commons-io.version>2.6</commons-io.version>
+		<commons-io.version>2.7</commons-io.version>
 		<jakarta.xml.bind.version>2.3.2</jakarta.xml.bind.version>
 	</properties>
 
